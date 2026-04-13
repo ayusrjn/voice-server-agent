@@ -97,11 +97,26 @@ Do not read out long ids, just mention what's important. The current connected u
                             # 1007 protocol format via raw WS payload
                             b64_audio = base64.b64encode(message["bytes"]).decode("utf-8")
                             realtime_payload = {
-                                "realtime_input": {
-                                    "audio": {
-                                        "mime_type": "audio/pcm;rate=16000",
+                                "clientContent": {
+                                    "turns": [{
+                                        "role": "user",
+                                        "parts": [{
+                                            "inlineData": {
+                                                "mimeType": "audio/pcm;rate=16000",
+                                                "data": b64_audio
+                                            }
+                                        }]
+                                    }],
+                                    "turnComplete": True
+                                }
+                            }
+                            # The Gemini Live API also supports realtimeInput:
+                            realtime_payload = {
+                                "realtimeInput": {
+                                    "mediaChunks": [{
+                                        "mimeType": "audio/pcm;rate=16000",
                                         "data": b64_audio
-                                    }
+                                    }]
                                 }
                             }
                             await gemini_ws.send(json.dumps(realtime_payload))
