@@ -1,0 +1,31 @@
+INFO:     Will watch for changes in these directories: ['/home/ayush-ranjan/Documents/zomato-live-agent/voice_agent_server']
+INFO:     Uvicorn running on http://127.0.0.1:8080 (Press CTRL+C to quit)
+INFO:     Started reloader process [117945] using WatchFiles
+INFO:     Started server process [117947]
+INFO:     Waiting for application startup.
+Task exception was never retrieved
+future: <Task finished name='Task-2' coro=<BaseApiClient.aclose() done, defined at /home/ayush-ranjan/.local/lib/python3.10/site-packages/google/genai/_api_client.py:2095> exception=AttributeError("'BaseApiClient' object has no attribute '_async_httpx_client'")>
+Traceback (most recent call last):
+  File "/home/ayush-ranjan/.local/lib/python3.10/site-packages/google/genai/_api_client.py", line 2100, in aclose
+    await self._async_httpx_client.aclose()  # type: ignore[union-attr]
+AttributeError: 'BaseApiClient' object has no attribute '_async_httpx_client'
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'main.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [117947]
+INFO:     Started server process [119795]
+INFO:     Waiting for application startup.
+Task exception was never retrieved
+future: <Task finished name='Task-2' coro=<BaseApiClient.aclose() done, defined at /home/ayush-ranjan/.local/lib/python3.10/site-packages/google/genai/_api_client.py:2095> exception=AttributeError("'BaseApiClient' object has no attribute '_async_httpx_client'")>
+Traceback (most recent call last):
+  File "/home/ayush-ranjan/.local/lib/python3.10/site-packages/google/genai/_api_client.py", line 2100, in aclose
+    await self._async_httpx_client.aclose()  # type: ignore[union-attr]
+AttributeError: 'BaseApiClient' object has no attribute '_async_httpx_client'
+INFO:     Application startup complete.
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [119795]
+INFO:     Stopping reloader process [117945]
