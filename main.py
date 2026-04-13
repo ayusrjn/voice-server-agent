@@ -27,9 +27,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+async def health_check():
+    return {"status": "ok", "service": "voice-agent-server"}
+
 # Removed static SYSTEM_INSTRUCTION
-@app.websocket("/ws/voice")
-async def websocket_voice_endpoint(websocket: WebSocket):
+async def _handle_voice_websocket(websocket: WebSocket):
+    """Core WebSocket handler shared by both path endpoints."""
     await websocket.accept()
     
     active_user_id = websocket.query_params.get("user_id", "1")
@@ -104,29 +108,14 @@ Do not read out long ids, just mention what's important. The current connected u
                     while True:
                         message = await websocket.receive()
                         if "bytes" in message:
-                            # 1007 protocol format via raw WS payload
                             b64_audio = base64.b64encode(message["bytes"]).decode("utf-8")
-                            realtime_payload = {
-                                "clientContent": {
-                                    "turns": [{
-                                        "role": "user",
-                                        "parts": [{
-                                            "inlineData": {
-                                                "mimeType": "audio/pcm;rate=16000",
-                                                "data": b64_audio
-                                            }
-                                        }]
-                                    }],
-                                    "turnComplete": True
-                                }
-                            }
-                            # The Gemini Live API also supports realtimeInput:
+                            # Use the current realtimeInput.audio format (mediaChunks is deprecated)
                             realtime_payload = {
                                 "realtimeInput": {
-                                    "mediaChunks": [{
+                                    "audio": {
                                         "mimeType": "audio/pcm;rate=16000",
                                         "data": b64_audio
-                                    }]
+                                    }
                                 }
                             }
                             await gemini_ws.send(json.dumps(realtime_payload))
@@ -233,3 +222,12 @@ Do not read out long ids, just mention what's important. The current connected u
         except Exception:
             pass
         await websocket.close()
+
+@app.websocket("/ws/voice")
+async def websocket_voice_endpoint(websocket: WebSocket):
+    await _handle_voice_websocket(websocket)
+
+@app.websocket("/")
+async def websocket_root_endpoint(websocket: WebSocket):
+    """Allow connections on root path too (Cloud Run clients connect here)."""
+    await _handle_voice_websocket(websocket)
