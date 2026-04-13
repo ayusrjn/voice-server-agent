@@ -4,9 +4,18 @@ import asyncio
 import json
 import base64
 import websockets
+import logging
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from tools import check_order_status, initiate_refund
+
+# Configure logging to output to stdout for GCP Cloud Run
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stdout
+)
+logger = logging.getLogger("voice_agent_server")
 
 app = FastAPI(title="Gemini Multimodal Voice Agent Server")
 
@@ -31,10 +40,11 @@ CRITICAL: Before looking up a database using tools, ALWAYS say a very quick fill
 Do not read out long ids, just mention what's important. The current connected user ID is {active_user_id}.
 """
     
-    print(f"Dashboard client connected to Voice WebSocket! (User ID: {active_user_id})")
+    logger.info(f"Dashboard client connected to Voice WebSocket! (User ID: {active_user_id})")
     
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
+        logger.error("GEMINI_API_KEY is not set on the server.")
         await websocket.send_text(json.dumps({"type": "error", "message": "Voice agent unavailable: GEMINI_API_KEY is not set on the server."}))
         await websocket.close(code=1008, reason="Missing API Key")
         return
@@ -44,7 +54,7 @@ Do not read out long ids, just mention what's important. The current connected u
 
     try:
         async with websockets.connect(gemini_ws_url) as gemini_ws:
-            print("Connected to Gemini Raw WebSocket api!")
+            logger.info("Connected to Gemini Raw WebSocket api!")
             
             # Send setup message
             setup_message = {
@@ -123,14 +133,14 @@ Do not read out long ids, just mention what's important. The current connected u
                         elif "text" in message:
                             pass
                 except WebSocketDisconnect:
-                    print("Dashboard client disconnected from WebSocket.")
+                    logger.info("Dashboard client disconnected from WebSocket.")
                 except RuntimeError as e:
                     if 'Cannot call "receive"' in str(e):
-                        print("Dashboard client disconnected from WebSocket.")
+                        logger.info("Dashboard client disconnected from WebSocket.")
                     else:
-                        print(f"Client read error: {e}")
+                        logger.error(f"Client read error: {e}", exc_info=True)
                 except Exception as e:
-                    print(f"Client read error: {e}")
+                    logger.error(f"Client read error: {e}", exc_info=True)
             
             async def receive_from_gemini():
                 try:
@@ -148,7 +158,7 @@ Do not read out long ids, just mention what's important. The current connected u
                                         await websocket.send_bytes(audio_bytes)
                                     elif "text" in part:
                                         text_str = part["text"]
-                                        print("Gemini:", text_str)
+                                        logger.info("Gemini: %s", text_str)
                                         await websocket.send_text(json.dumps({"type": "text", "text": text_str}))
                                         
                         # 2. Handle Tool Calls (Top-Level Key)
@@ -161,7 +171,7 @@ Do not read out long ids, just mention what's important. The current connected u
                                 name = call["name"]
                                 args = call.get("args", {})
                                 call_id = call.get("id", "")
-                                print(f"Tool called: {name} args: {args}")
+                                logger.info("Tool called: %s args: %s", name, args)
                                 
                                 # Visual indicator for the user on the frontend
                                 await websocket.send_text(json.dumps({"type": "text", "text": f"⏳ Checking system for: {name}..."}))
@@ -180,6 +190,7 @@ Do not read out long ids, just mention what's important. The current connected u
                                         reason=str(reason_str)
                                     )
                                 else:
+                                    logger.warning("Invalid tool called: %s", name)
                                     result_str = "Error: Invalid tool"
                                     
                                 # Format response strictly to Live API schema requirements
@@ -194,15 +205,15 @@ Do not read out long ids, just mention what's important. The current connected u
                                     "functionResponses": function_responses
                                 }
                             }
-                            print("Sending tool response:", tool_response_payload)
+                            logger.info("Sending tool response: %s", json.dumps(tool_response_payload))
                             await gemini_ws.send(json.dumps(tool_response_payload))
                             
                         # 3. Handle Setup
                         elif "setupComplete" in response:
-                            print("Gemini setup complete!")
+                            logger.info("Gemini setup complete!")
                             
                 except Exception as e:
-                    print(f"Server receive error from Gemini: {e}")
+                    logger.error(f"Server receive error from Gemini: {e}", exc_info=True)
 
             client_task = asyncio.create_task(receive_from_client())
             gemini_task = asyncio.create_task(receive_from_gemini())
@@ -216,7 +227,7 @@ Do not read out long ids, just mention what's important. The current connected u
                 
     except Exception as e:
         error_msg = str(e)
-        print(f"Gemini core connection fatal error: {error_msg}")
+        logger.error(f"Gemini core connection fatal error: {error_msg}", exc_info=True)
         try:
             await websocket.send_text(json.dumps({"type": "error", "message": f"Voice agent connection failed: {error_msg}"}))
         except Exception:
